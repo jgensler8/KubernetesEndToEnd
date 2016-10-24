@@ -1,0 +1,13 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: sourcecontrol
+spec:
+  rules:
+  - host: gitlab.minikube
+    http:
+      paths:
+      - path: /gitlab
+        backend:
+          serviceName: gitlab
+          servicePort: 8082

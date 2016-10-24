@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-configmap
+data:
+  #  project-xml-file-name: project.xml
+  #  users-xml-file-name: users.xml
+  project-xml: |
+    <?xml version='1.0' encoding='UTF-8'?>
+    <project>
+      <actions/>
+      <description></description>
+      <keepDependencies>false</keepDependencies>
+      <properties/>
+      <scm class="hudson.plugins.git.GitSCM" plugin="git@3.0.0">
+        <configVersion>2</configVersion>
+        <userRemoteConfigs>
+          <hudson.plugins.git.UserRemoteConfig>
+            <url>http://192.168.99.102:3001/docker/newrepo</url>
+          </hudson.plugins.git.UserRemoteConfig>
+        </userRemoteConfigs>
+        <branches>
+          <hudson.plugins.git.BranchSpec>
+            <name>*/master</name>
+          </hudson.plugins.git.BranchSpec>
+        </branches>
+        <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+        <submoduleCfg class="list"/>
+        <extensions/>
+      </scm>
+      <canRoam>true</canRoam>
+      <disabled>false</disabled>
+      <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+      <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+      <triggers/>
+      <concurrentBuild>false</concurrentBuild>
+      <builders>
+        <ruby-proxy-object>
+          <ruby-object ruby-class="Jenkins::Tasks::BuilderProxy" pluginid="travis-yml">
+            <object ruby-class="TravisYmlBuilder" pluginid="travis-yml"/>
+            <pluginid pluginid="travis-yml" ruby-class="String">travis-yml</pluginid>
+          </ruby-object>
+        </ruby-proxy-object>
+      </builders>
+      <publishers/>
+      <buildWrappers/>
+    </project>
+  users-xml: |
+    <?xml version='1.0' encoding='UTF-8'?>
+    <user>
+      <fullName>docker</fullName>
+      <properties>
+        <jenkins.security.ApiTokenProperty>
+          <apiToken>uzkyIJlauG2ftNn9jQGdgODBzTHLaFTRNO4wgg+kx3ZEuls+bp//I80HOqUBgk14</apiToken>
+        </jenkins.security.ApiTokenProperty>
+        <com.cloudbees.plugins.credentials.UserCredentialsProvider_-UserCredentialsProperty plugin="credentials@2.1.7">
+          <domainCredentialsMap class="hudson.util.CopyOnWriteMap$Hash"/>
+        </com.cloudbees.plugins.credentials.UserCredentialsProvider_-UserCredentialsProperty>
+        <hudson.model.MyViewsProperty>
+          <views>
+            <hudson.model.AllView>
+              <owner class="hudson.model.MyViewsProperty" reference="../../.."/>
+              <name>All</name>
+              <filterExecutors>false</filterExecutors>
+              <filterQueue>false</filterQueue>
+              <properties class="hudson.model.View$PropertyList"/>
+            </hudson.model.AllView>
+          </views>
+        </hudson.model.MyViewsProperty>
+        <hudson.model.PaneStatusProperties>
+          <collapsed/>
+        </hudson.model.PaneStatusProperties>
+        <hudson.search.UserSearchProperty>
+          <insensitiveSearch>false</insensitiveSearch>
+        </hudson.search.UserSearchProperty>
+        <hudson.security.HudsonPrivateSecurityRealm_-Details>
+          <passwordHash>#jbcrypt:$2a$10$JyubX03E1GBGsvjfUdeOBOpKy5UtliPu8qViceaFqyHH5U5KXztrC</passwordHash>
+        </hudson.security.HudsonPrivateSecurityRealm_-Details>
+        <hudson.tasks.Mailer_-UserProperty plugin="mailer@1.18">
+          <emailAddress>docker@docker.com</emailAddress>
+        </hudson.tasks.Mailer_-UserProperty>
+        <jenkins.security.LastGrantedAuthoritiesProperty>
+          <roles>
+            <string>authenticated</string>
+          </roles>
+          <timestamp>1477191769681</timestamp>
+        </jenkins.security.LastGrantedAuthoritiesProperty>
+      </properties>
+    </user>
+  bootstrap.sh: |
+    # Install docker
+    apt-get update
+    apt-get purge "docker.io*"
+    apt-get update
+    apt-get install -y apt-transport-https ca-certificates
+    apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+    echo "deb https://apt.dockerproject.org/repo debian-jessie main" > /etc/apt/sources.list.d/docker.list
+    apt-get update
+    apt-get install -y docker-engine
+
+    # Install Kubernetes (kubectl)
+    export KUBERNETES_VERSION=1.4.3
+    wget -q -O /opt/kubernetes.tar.gz "https://github.com/kubernetes/kubernetes/releases/download/v${KUBERNETES_VERSION}/kubernetes.tar.gz"
+    cd /usr/local/bin
+    tar -xvzf /opt/kubernetes.tar.gz kubernetes/platforms/linux/386/kubectl --strip-components=4
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: jenkins
+  labels:
+    name: jenkins
+spec:
+  replicas: 1
+  selector:
+    name: jenkins
+  template:
+    metadata:
+      labels:
+        name: jenkins
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: jenkins
+        name: jenkins
+        imagePullPolicy: Always
+        volumeMounts:
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+        - mountPath: /var/jenkins-home
+          name: jenkins-config
+        ports:
+        - containerPort: 8080
+          hostPort: 8082
+        - containerPort: 50000
+          hostPort: 50000
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+      - name: jenkins-config
+        configMap:
+          name: jenkins-configmap
+          items:
+          - key: project-xml
+            path: projects/myproject
+          - key: users-xml
+            path: users/docker
+          # - key: bootstrap.sh
+          #   path: .
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins
+spec:
+  selector:
+    name: jenkins
+  ports:
+  - name: ui
+    port: 8082
+    targetPort: 8082
+  - name: queue
+    port: 50000
+    targetPort: 50000

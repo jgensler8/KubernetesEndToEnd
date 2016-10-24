@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: registry
+  labels:
+    name: registry
+spec:
+  replicas: 1
+  selector:
+    name: registry
+  template:
+    metadata:
+      labels:
+        name: registry
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: registry:latest
+        name: registry
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          hostPort: 5001
+        env:
+        - name: DOCKER_OPTS
+          value: "--insecure-registry 0.0.0.0:5000"
+      - image: hyper/docker-registry-web
+        name: frontend
+        imagePullPolicy: Always
+        env:
+        - name: REGISTRY_URL
+          value: "http://localhost:5000/v2"
+        - name: REGISTRY_NAME
+          value: "localhost:5000"
+        ports:
+        - containerPort: 8080
+          hostPort: 8083
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+spec:
+  selector:
+    name: registry
+  ports:
+  - name: registry
+    port: 5001
+    targetPort: 5001
+  - name: frontend
+    port: 8083
+    targetPort: 8083
