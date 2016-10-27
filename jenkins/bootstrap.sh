@@ -16,4 +16,4 @@ wget -q -O /opt/kubernetes.tar.gz "https://github.com/kubernetes/kubernetes/rele
 cd /usr/local/bin
 tar -xvzf /opt/kubernetes.tar.gz kubernetes/platforms/linux/386/kubectl --strip-components=4
 
-# chown jenkins:jenkins /var/run/docker.sock
+chown jenkins:jenkins /var/run/docker.sock

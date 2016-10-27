@@ -104,6 +104,33 @@ data:
     cd /usr/local/bin
     tar -xvzf /opt/kubernetes.tar.gz kubernetes/platforms/linux/386/kubectl --strip-components=4
 ---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: jenkins-persistent
+  labels:
+    type: local
+  annotations:
+    pv.beta.kubernetes.io/gid: "1234"
+spec:
+  capacity:
+    storage: 4Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/sda1/jenkins_persistent_home"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: jenkins-persistent-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
 apiVersion: v1
 kind: ReplicationController
 metadata:
@@ -128,7 +155,7 @@ spec:
         - mountPath: /var/run/docker.sock
           name: docker-socket
         - mountPath: /var/jenkins_home
-          name: jenkins-config
+          name: jenkins-persistent-home
         ports:
         - containerPort: 8080
           hostPort: 8082
@@ -138,16 +165,19 @@ spec:
       - name: docker-socket
         hostPath:
           path: /var/run/docker.sock
-      - name: jenkins-config
-        configMap:
-          name: jenkins-configmap
-          items:
-          - key: project-xml
-            path: projects/myproject
-          - key: users-xml
-            path: users/docker
-          # - key: bootstrap.sh
-          #   path: .
+      - name: jenkins-persistent-home
+        persistentVolumeClaim:
+          claimName: jenkins-persistent-claim
+      # - name: jenkins-config
+      #   configMap:
+      #     name: jenkins-configmap
+      #     items:
+      #     - key: project-xml
+      #       path: projects/myproject
+      #     - key: users-xml
+      #       path: users/docker
+      #     - key: bootstrap.sh
+      #       path: .
 ---
 apiVersion: v1
 kind: Service

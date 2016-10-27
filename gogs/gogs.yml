@@ -1,3 +1,31 @@
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: gogs-persistent-data
+  labels:
+    type: local
+  annotations:
+    pv.beta.kubernetes.io/gid: "1234"
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/sda1/gogs_persistent_data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: gogs-persistent-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
 apiVersion: v1
 kind: ReplicationController
 metadata:
@@ -21,6 +49,13 @@ spec:
         ports:
         - containerPort: 3000
           hostPort: 3001
+        volumeMounts:
+        - mountPath: /data
+          name: gogs-persistent-data
+      volumes:
+      - name: gogs-persistent-data
+        persistentVolumeClaim:
+          claimName: gogs-persistent-claim
 ---
 apiVersion: v1
 kind: Service
