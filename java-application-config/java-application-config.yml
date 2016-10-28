@@ -1,0 +1,15 @@
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: team-1
+  labels:
+    name: team-1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-java-app-configmap
+  namespace: team-1
+data:
+  message-of-the-day: |-
+    message.of.the.day=Jeffrey

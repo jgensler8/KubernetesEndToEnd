@@ -15,5 +15,10 @@ export KUBERNETES_VERSION=1.4.3
 wget -q -O /opt/kubernetes.tar.gz "https://github.com/kubernetes/kubernetes/releases/download/v${KUBERNETES_VERSION}/kubernetes.tar.gz"
 cd /usr/local/bin
 tar -xvzf /opt/kubernetes.tar.gz kubernetes/platforms/linux/386/kubectl --strip-components=4
+chown jenkins:jenkins /usr/local/bin/kubectl
 
+# Change ownership
 chown jenkins:jenkins /var/run/docker.sock
+
+# Install maven
+apt-get install maven
