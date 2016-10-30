@@ -1,0 +1,103 @@
+# When you open the Shoud UI, join:
+# Server: localhost
+# Port: 6667
+# Disable SSL
+# Rooms: #help
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: shout-persistent-data
+  labels:
+    type: local
+  annotations:
+    pv.beta.kubernetes.io/gid: "1234"
+spec:
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/sda1/shout_persistent_data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: shout-persistent-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: shout
+  labels:
+    name: shout
+spec:
+  replicas: 1
+  selector:
+    name: shout
+  template:
+    metadata:
+      labels:
+        name: shout
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: arbourd/shout
+        name: shout-client
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9000
+          hostPort: 8091
+        volumeMounts:
+        - mountPath: /shout
+          name: shout-persistent-data
+      - image: cloudposse/unrealircd
+        name: unrealircd-server
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8067
+          hostPort: 8068
+        - containerPort: 6667
+          hostPort: 6668
+      - image: fabric8/hubot-irc
+        name: hubot-irc
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          hostPort: 8092
+        - containerPort: 8067
+          hostPort: 8093
+        - containerPort: 9000
+          hostPort: 8094
+        env:
+        - name: HUBOT_IRC_SERVER
+          value: localhost
+        - name: HUBOT_IRC_PORT
+          value: "6667"
+        - name: HUBOT_IRC_ROOMS
+          value: "#help"
+        - name: HUBOT_IRC_NICK
+          value: hubot
+        # - key: HUBOT_IRC_USESSL
+        #   value: false
+      volumes:
+      - name: shout-persistent-data
+        persistentVolumeClaim:
+          claimName: shout-persistent-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shout
+spec:
+  selector:
+    name: shout
+  ports:
+  - port: 8091
+    targetPort: 8091
